@@ -32,14 +32,10 @@ inline static NSString *formatedSpeed(float bytes, float elapsed_milli) {
 
 @interface LFLivePreview ()<LFLiveSessionDelegate>
 
-@property (nonatomic, strong) UIButton *beautyButton;
-@property (nonatomic, strong) UIButton *cameraButton;
-@property (nonatomic, strong) UIButton *closeButton;
 @property (nonatomic, strong) UIButton *startLiveButton;
 @property (nonatomic, strong) UIView *containerView;
 @property (nonatomic, strong) LFLiveDebug *debugInfo;
 @property (nonatomic, strong) LFLiveSession *session;
-@property (nonatomic, strong) UILabel *stateLabel;
 
 @end
 
@@ -51,10 +47,6 @@ inline static NSString *formatedSpeed(float bytes, float elapsed_milli) {
         [self requestAccessForVideo];
         [self requestAccessForAudio];
         [self addSubview:self.containerView];
-        [self.containerView addSubview:self.stateLabel];
-        [self.containerView addSubview:self.closeButton];
-        [self.containerView addSubview:self.cameraButton];
-        [self.containerView addSubview:self.beautyButton];
         [self.containerView addSubview:self.startLiveButton];
     }
     return self;
@@ -116,25 +108,6 @@ inline static NSString *formatedSpeed(float bytes, float elapsed_milli) {
 /** live status changed will callback */
 - (void)liveSession:(nullable LFLiveSession *)session liveStateDidChange:(LFLiveState)state {
     NSLog(@"liveStateDidChange: %ld", state);
-    switch (state) {
-    case LFLiveReady:
-        _stateLabel.text = @"Ready";
-        break;
-    case LFLivePending:
-        _stateLabel.text = @"Pending";
-        break;
-    case LFLiveStart:
-        _stateLabel.text = @"Start";
-        break;
-    case LFLiveError:
-        _stateLabel.text = @"Error";
-        break;
-    case LFLiveStop:
-        _stateLabel.text = @"Stop";
-        break;
-    default:
-        break;
-    }
 }
 
 /** live debug info callback */
@@ -150,17 +123,24 @@ inline static NSString *formatedSpeed(float bytes, float elapsed_milli) {
 #pragma mark -- Getter Setter
 - (LFLiveSession *)session {
     if (!_session) {
-        LFLiveVideoConfiguration *videoConfiguration = [LFLiveVideoConfiguration new];
-        videoConfiguration.videoSize = CGSizeMake(640, 360);
-        videoConfiguration.videoBitRate = 800*1024;
-        videoConfiguration.videoMaxBitRate = 1000*1024;
-        videoConfiguration.videoMinBitRate = 500*1024;
-        videoConfiguration.videoFrameRate = 24;
-        videoConfiguration.videoMaxKeyframeInterval = 48;
-        videoConfiguration.outputImageOrientation = UIInterfaceOrientationLandscapeLeft;
-        videoConfiguration.autorotate = NO;
-        videoConfiguration.sessionPreset = LFCaptureSessionPreset720x1280;
+//        LFLiveVideoConfiguration *videoConfiguration = [LFLiveVideoConfiguration new];
+//        videoConfiguration.videoSize = CGSizeMake(360, 540);
+//        videoConfiguration.videoBitRate = 800*1024;
+//        videoConfiguration.videoMaxBitRate = 1000*1024;
+//        videoConfiguration.videoMinBitRate = 500*1024;
+//        videoConfiguration.videoFrameRate = 24;
+//        videoConfiguration.videoMaxKeyframeInterval = 48;
+//        videoConfiguration.outputImageOrientation = UIInterfaceOrientationPortrait;
+//        videoConfiguration.autorotate = NO;
+        
+        LFLiveVideoConfiguration *videoConfiguration = [LFLiveVideoConfiguration defaultConfigurationForQuality:LFLiveVideoQuality_High1];
+        
         _session = [[LFLiveSession alloc] initWithAudioConfiguration:[LFLiveAudioConfiguration defaultConfiguration] videoConfiguration:videoConfiguration captureType:LFLiveCaptureDefaultMask];
+        _session.delegate = self;
+        _session.showDebugInfo = NO;
+        _session.preView = self;
+        _session.captureDevicePosition = AVCaptureDevicePositionFront;
+        _session.beautyFace = YES;
 
         /**    自己定制单声道  */
         /*
@@ -245,10 +225,6 @@ inline static NSString *formatedSpeed(float bytes, float elapsed_milli) {
            _session = [[LFLiveSession alloc] initWithAudioConfiguration:audioConfiguration videoConfiguration:videoConfiguration];
         */
 
-        _session.delegate = self;
-        _session.showDebugInfo = NO;
-        _session.preView = self;
-        
         /*本地存储*/
 //        _session.saveLocalVideo = YES;
 //        NSString *pathToMovie = [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/Movie.mp4"];
@@ -275,64 +251,6 @@ inline static NSString *formatedSpeed(float bytes, float elapsed_milli) {
         _containerView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     }
     return _containerView;
-}
-
-- (UILabel *)stateLabel {
-    if (!_stateLabel) {
-        _stateLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 20, 80, 40)];
-        _stateLabel.text = @"Ready";
-        _stateLabel.textColor = [UIColor whiteColor];
-        _stateLabel.font = [UIFont boldSystemFontOfSize:14.f];
-    }
-    return _stateLabel;
-}
-
-- (UIButton *)closeButton {
-    if (!_closeButton) {
-        _closeButton = [UIButton new];
-        _closeButton.size = CGSizeMake(44, 44);
-        _closeButton.left = self.width - 10 - _closeButton.width;
-        _closeButton.top = 20;
-        [_closeButton setImage:[UIImage imageNamed:@"close_preview"] forState:UIControlStateNormal];
-        _closeButton.exclusiveTouch = YES;
-        [_closeButton addBlockForControlEvents:UIControlEventTouchUpInside block:^(id sender) {
-
-        }];
-    }
-    return _closeButton;
-}
-
-- (UIButton *)cameraButton {
-    if (!_cameraButton) {
-        _cameraButton = [UIButton new];
-        _cameraButton.size = CGSizeMake(44, 44);
-        _cameraButton.origin = CGPointMake(_closeButton.left - 10 - _cameraButton.width, 20);
-        [_cameraButton setImage:[UIImage imageNamed:@"camra_preview"] forState:UIControlStateNormal];
-        _cameraButton.exclusiveTouch = YES;
-        __weak typeof(self) _self = self;
-        [_cameraButton addBlockForControlEvents:UIControlEventTouchUpInside block:^(id sender) {
-            AVCaptureDevicePosition devicePositon = _self.session.captureDevicePosition;
-            _self.session.captureDevicePosition = (devicePositon == AVCaptureDevicePositionBack) ? AVCaptureDevicePositionFront : AVCaptureDevicePositionBack;
-        }];
-    }
-    return _cameraButton;
-}
-
-- (UIButton *)beautyButton {
-    if (!_beautyButton) {
-        _beautyButton = [UIButton new];
-        _beautyButton.size = CGSizeMake(44, 44);
-        _beautyButton.origin = CGPointMake(_cameraButton.left - 10 - _beautyButton.width, 20);
-        [_beautyButton setImage:[UIImage imageNamed:@"camra_beauty"] forState:UIControlStateNormal];
-        [_beautyButton setImage:[UIImage imageNamed:@"camra_beauty_close"] forState:UIControlStateSelected];
-        _beautyButton.exclusiveTouch = YES;
-        __weak typeof(self) _self = self;
-        [_beautyButton addBlockForControlEvents:UIControlEventTouchUpInside block:^(id sender) {
-            _self.session.beautyFace = !_self.session.beautyFace;
-            _self.beautyButton.selected = !_self.session.beautyFace;
-        }];
-    }
-    return _beautyButton;
 }
 
 - (UIButton *)startLiveButton {
